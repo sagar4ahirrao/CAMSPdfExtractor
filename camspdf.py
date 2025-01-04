@@ -140,12 +140,15 @@ class _FundDetails:
     isin: str
     scheme_code: str
     folio_num: str
+    pan: str
     date: str
     txn: str
     amount: float
     units: float
     nav: float
     balance_units: float
+    current_value: float = 0.0
+    total_gain: float = 0.0
 
 
 class _ProcessTextFile:
@@ -192,10 +195,12 @@ class _ProcessTextFile:
         folio_num = ""
         fund_name = ""
         isin = ""
+        pan = ""
         for eachline in self.alllines:
             m = re.match(FOLIO_PAN, eachline)
             if m:
                 folio_num = m.groupdict().get("folio_num")
+                pan = m.groupdict().get("pan")
                 continue
 
             m = re.match(FNAME_ISIN, eachline)
@@ -221,6 +226,7 @@ class _ProcessTextFile:
                     folio_num=folio_num,
                     fund_name=fund_name,
                     isin=isin,
+                    pan=pan,
                     scheme_code=self.lnav.get_sch_code(isin),
                     date=date,
                     txn=txn,
@@ -250,6 +256,7 @@ class _ProcessTextFile:
                     folio_num=folio_num,
                     fund_name=fund_name,
                     isin=isin,
+                    pan=pan,
                     scheme_code=self.lnav.get_sch_code(isin),
                     date=date,
                     txn=txn,
@@ -277,6 +284,7 @@ class _ProcessTextFile:
                     folio_num=folio_num,
                     fund_name=fund_name,
                     isin=isin,
+                    pan=pan,
                     scheme_code=self.lnav.get_sch_code(isin),
                     date=date,
                     txn=txn,
