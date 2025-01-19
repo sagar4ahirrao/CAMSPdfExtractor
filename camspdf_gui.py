@@ -12,6 +12,12 @@ class MutualFundAnalyzer:
             st.session_state.combined_df = None
         if 'investment_summary' not in st.session_state:
             st.session_state.investment_summary = None
+        if 'selected_pans' not in st.session_state:
+            st.session_state.selected_pans = []
+        if 'selected_funds' not in st.session_state:
+            st.session_state.selected_funds = []
+
+
         
     def validate_file(self, uploaded_file):
         """Validate uploaded PDF file"""
@@ -135,12 +141,19 @@ class MutualFundAnalyzer:
         return investment_summary
 
     def create_investment_filters(self, df):
-        """Create advanced filters for investment data with dynamic checkboxes and session state"""
-        # Use session state to store filter states
-        if 'selected_pans' not in st.session_state:
+        """
+        Create advanced filters for investment data with dynamic checkboxes 
+        and persistent session state without page reset
+        """
+        # Ensure session state is initialized
+        if 'combined_df' not in st.session_state or st.session_state.combined_df is None:
+            st.session_state.combined_df = df
+        
+        # Initialize or reset filter states if not set
+        if 'selected_pans' not in st.session_state or not st.session_state.selected_pans:
             st.session_state.selected_pans = sorted(df['pan'].unique())
         
-        if 'selected_funds' not in st.session_state:
+        if 'selected_funds' not in st.session_state or not st.session_state.selected_funds:
             st.session_state.selected_funds = sorted(df['fund_name'].unique())
 
         st.sidebar.header("🔍 Investment Filters")
@@ -149,16 +162,18 @@ class MutualFundAnalyzer:
         st.sidebar.subheader("PAN Selection")
         all_pans = sorted(df['pan'].unique())
         
-        # Create checkboxes for PANs with current session state
+        # Dynamically create PAN checkboxes
         for pan in all_pans:
-            # Use session state to track PAN selection
+            pan_key = f"pan_{pan}"
+            
+            # Use a unique key for each checkbox to prevent re-rendering
             pan_selected = st.sidebar.checkbox(
                 f"PAN: {pan}", 
                 value=pan in st.session_state.selected_pans,
-                key=f"pan_{pan}"
+                key=pan_key
             )
             
-            # Update session state based on checkbox
+            # Update PAN selection in session state
             if pan_selected and pan not in st.session_state.selected_pans:
                 st.session_state.selected_pans.append(pan)
             elif not pan_selected and pan in st.session_state.selected_pans:
@@ -169,11 +184,9 @@ class MutualFundAnalyzer:
         
         # Group similar fund names
         def simplify_fund_name(name):
-            # Remove common suffixes and standardize
-            name = name.split('-')[0].strip()
-            return name
+            return name.split('-')[0].strip()
         
-        # Create a mapping of simplified names to original names
+        # Create fund name mapping
         fund_name_mapping = {}
         for fund in df['fund_name']:
             simplified = simplify_fund_name(fund)
@@ -184,27 +197,33 @@ class MutualFundAnalyzer:
         # Sort simplified fund names
         all_simplified_funds = sorted(fund_name_mapping.keys())
         
-        # Create checkboxes for funds with current session state
+        # Dynamically create Fund checkboxes
         for simplified_fund in all_simplified_funds:
-            # Check if any fund in this simplified group is currently selected
             funds_in_group = fund_name_mapping[simplified_fund]
-            group_selected = any(fund in st.session_state.selected_funds for fund in funds_in_group)
+            fund_key = f"fund_{simplified_fund}"
             
-            # Use session state to track fund selection
+            # Check if any fund in the group is currently selected
+            group_selected = any(
+                fund in st.session_state.selected_funds 
+                for fund in funds_in_group
+            )
+            
+            # Use a unique key for each checkbox to prevent re-rendering
             fund_selected = st.sidebar.checkbox(
                 f"Fund: {simplified_fund}", 
                 value=group_selected,
-                key=f"fund_{simplified_fund}"
+                key=fund_key
             )
             
-            # Update session state based on checkbox
+            # Update fund selection in session state
             if fund_selected:
-                # Add all funds in this group to selected funds
-                st.session_state.selected_funds.extend(
-                    [fund for fund in funds_in_group if fund not in st.session_state.selected_funds]
-                )
+                # Add funds not already in selected_funds
+                st.session_state.selected_funds.extend([
+                    fund for fund in funds_in_group 
+                    if fund not in st.session_state.selected_funds
+                ])
             else:
-                # Remove all funds in this group from selected funds
+                # Remove funds in this group from selected_funds
                 st.session_state.selected_funds = [
                     fund for fund in st.session_state.selected_funds 
                     if fund not in funds_in_group
@@ -217,6 +236,7 @@ class MutualFundAnalyzer:
         ]
         
         return filtered_df
+
 
     def display_investment_summary(self, investment_summary):
         """Display comprehensive investment summary"""
@@ -345,7 +365,10 @@ class MutualFundAnalyzer:
             
             else:
                 st.warning("No data could be extracted. Please check your PDFs and passwords.")
-
+        if st.session_state.combined_df is not None:
+            investment_summary = self.prepare_investment_data(st.session_state.combined_df)
+            filtered_summary = self.create_investment_filters(investment_summary)
+            self.display_investment_summary(filtered_summary)
 # Run the application
 if __name__ == "__main__":
     analyzer = MutualFundAnalyzer()
